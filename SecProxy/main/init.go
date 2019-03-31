@@ -41,7 +41,6 @@ func initSec() (err error) {
 	if err != nil {
 		return err
 	}
-	initSecProduct()
 
 	beego.Debug("init sec success")
 	return nil

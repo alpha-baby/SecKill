@@ -37,25 +37,17 @@ func LoadProductFromEtcd(conf *SecLayerConf) (err error) {
 }
 
 func updateSecProductInfo(secProductInfo []SecProductInfoConf) {
-	if len(secProductInfo) == 0 {
-		return
-	}
+	var tmp map[int64]*SecProductInfoConf = make(map[int64]*SecProductInfoConf, 1024)
 
-	var tmp map[int]*SecProductInfoConf = make(map[int]*SecProductInfoConf, 1024)
-	seclayerContext.RWSecProductLock.RLock()
-	if len(secLayerConf.SecProductInfoMap) != 0 {
-		tmp = secLayerConf.SecProductInfoMap
-	}
-	seclayerContext.RWSecProductLock.RUnlock()
 	for _, v := range secProductInfo {
 		//product := service.SecProductInfoConf{}
 		product := v
 		product.secLimit = &SecLimit{}
-		tmp[v.ProductId] = &product
+		tmp[v.ID] = &product
 	}
 
 	seclayerContext.RWSecProductLock.Lock()
-	secLayerConf.SecProductInfoMap = tmp
+	seclayerContext.SecLayerConf.SecProductInfoMap = tmp
 	seclayerContext.RWSecProductLock.Unlock()
 
 	beego.Debug("add Sec Product info Conf :", tmp)
@@ -68,12 +60,13 @@ func watchSecProductKey(key string) {
 	for {
 		rch := seclayerContext.EtcdClient.Watch(context.Background(), key)
 		var secProductInfo []SecProductInfoConf
-		var getConfSucc = true
 
 		for wresp := range rch {
 			for _, ev := range wresp.Events {
 				if ev.Type == mvccpb.DELETE {
 					beego.Warn(fmt.Sprintf("key[%s] 's config deleted", key))
+					secProductInfo = []SecProductInfoConf{}
+					updateSecProductInfo(secProductInfo)
 					continue
 				}
 
@@ -81,16 +74,14 @@ func watchSecProductKey(key string) {
 					err := json.Unmarshal(ev.Kv.Value, &secProductInfo)
 					if err != nil {
 						beego.Error(fmt.Sprintf("key [%s], Unmarshal[%s], err:%v ", err))
-						getConfSucc = false
 						continue
 					}
+
+					beego.Debug(fmt.Sprintf("get new config from etcd: %v", secProductInfo))
+					updateSecProductInfo(secProductInfo)
 				}
 			}
 
-			if getConfSucc {
-				beego.Debug(fmt.Sprintf("get new config from etcd: %v", secProductInfo))
-				updateSecProductInfo(secProductInfo)
-			}
 		}
 	}
 }

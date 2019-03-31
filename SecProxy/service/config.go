@@ -21,7 +21,7 @@ type SecKillServer struct {
 
 	EtcdConfig EtcdConfig
 
-	SecProductInfoConfMap map[int]*SecProductInfoConf
+	SecProductInfoConfMap map[int64]*SecProductInfoConf
 	RWSecProductLock      sync.RWMutex
 
 	LogPath  string
@@ -43,6 +43,9 @@ type SecKillServer struct {
 	SecReqChanSize       int
 
 	secLimitMgr *SecLimitMgr
+
+	UserConnMap     map[string]chan *SecResult
+	UserConnMapLock sync.Mutex
 }
 
 type RedisConfig struct {
@@ -61,22 +64,37 @@ type EtcdConfig struct {
 }
 
 type SecProductInfoConf struct {
-	ProductId int
-	StartTime int64
-	EndTime   int64
-	Status    int
-	Total     int
-	Left      int
+	//ID int64
+	//ProductId int
+	//StartTime int64
+	//EndTime   int64
+	//Status    int
+	//Total     int
+	//Left      int
+	ID int64
+	ProductId         int
+	StartTime         int64
+	EndTime           int64
+	Status            int
+	Total             int
+	Left              int
+	OnePersonBuyLimit int
+	BuyRate           float64
+	//每秒最多能卖多少个
+	SoldMaxLimit int
 }
 
 type SecResult struct {
+	ID int64
 	ProductId int
 	UserId    int
-	Code      int
 	Token     string
+	Code      int
+	TokenTime int64
 }
 
 type SecRequest struct {
+	ID int64
 	ProductId     int
 	Source        string
 	AuthCode      string
@@ -87,7 +105,7 @@ type SecRequest struct {
 	AccessTime    time.Time
 	ClientAddr    string
 	ClientRefence string
-	CloseNotify   <-chan bool
+	CloseNotify   <-chan bool `json:"-"`
 
-	ResultChan chan *SecResult
+	ResultChan chan *SecResult `json:"-"`
 }

@@ -70,12 +70,24 @@ func HandleReader() {
 	for {
 		conn := seclayerContext.Proxy2LayerRedisPool.Get()
 		for {
-			data, err := redis.String(conn.Do("blpop", seclayerContext.SecLayerConf.Proxy2LayerRedis.RedisQueueName, 0))
+			ret, err := conn.Do("blpop", seclayerContext.SecLayerConf.Proxy2LayerRedis.RedisQueueName, 0)
 			if err != nil {
+				logs.Warn("pop from queue, err:%v", err)
 				conn.Close()
 				break
 			}
-			logs.Debug("pop from queue, data:%s", data)
+
+			tmp, ok := ret.([]interface{})
+			if !ok || len(tmp) != 2 {
+				logs.Warn("pop from queue, err:ret.([]interface{}) failed")
+				continue
+			}
+			data, ok := tmp[1].([]byte)
+			if !ok {
+				logs.Warn("pop from queue, err: tmp[1].([]byte) failed")
+				continue
+			}
+			logs.Debug("pop from queue, data:%s", string(data))
 			var req SecRequest
 			err = json.Unmarshal([]byte(data), &req)
 			if err != nil {
@@ -145,11 +157,14 @@ func HandleUser() {
 }
 
 func HandleSecKill(req *SecRequest) (res *SecResponse, err error) {
-	seclayerContext.RWSecProductLock.Lock()
-	defer seclayerContext.RWSecProductLock.Unlock()
+	seclayerContext.RWSecProductLock.RLock()
+	defer seclayerContext.RWSecProductLock.RUnlock()
 
 	res = &SecResponse{}
-	product, ok := seclayerContext.SecLayerConf.SecProductInfoMap[req.ProductId]
+	res.ID = req.ID
+	res.ProductId = req.ProductId
+	res.UserId = req.UserId
+	product, ok := seclayerContext.SecLayerConf.SecProductInfoMap[req.ID]
 	if !ok {
 		logs.Error("not found product :%v", req.ProductId)
 		res.Code = ErrNotFoundProduct
@@ -169,23 +184,23 @@ func HandleSecKill(req *SecRequest) (res *SecResponse, err error) {
 	}
 
 	seclayerContext.HistoryMapLock.Lock()
-	userHistory, ok := seclayerContext.HistoryMap[req.ProductId]
+	userHistory, ok := seclayerContext.HistoryMap[req.UserId]
 	if !ok {
 		userHistory = &UserBuyHistory{
 			history: make(map[int]int, 16),
 		}
 
-		seclayerContext.HistoryMap[req.ProductId] = userHistory
+		seclayerContext.HistoryMap[req.UserId] = userHistory
 	}
 
-	historyCount := userHistory.GetProductByCount(req.ProductId)
+	historyCount := userHistory.GetProductByCount(req.UserId)
 	seclayerContext.HistoryMapLock.Unlock()
 	if historyCount > product.OnePersonBuyLimit {
 		res.Code = ErrAlreadyBuy
 		return
 	}
 
-	curSoldCount := seclayerContext.ProductCountMgr.Count(req.ProductId)
+	curSoldCount := seclayerContext.ProductCountMgr.Count(req.ID)
 	if curSoldCount >= product.Total {
 		res.Code = ErrSoldout
 		product.Status = ProductStatusSoldout
@@ -193,13 +208,14 @@ func HandleSecKill(req *SecRequest) (res *SecResponse, err error) {
 	}
 
 	curRate := rand.Float64()
-	if curRate > curRate {
+	logs.Debug("curRate:%v, product Rate:%v", curRate, product.BuyRate)
+	if product.BuyRate > curRate {
 		res.Code = ErrRetry
 		return
 	}
 
-	userHistory.Add(req.ProductId, 1)
-	seclayerContext.ProductCountMgr.Add(req.ProductId, 1)
+	userHistory.Add(req.UserId, 1)
+	seclayerContext.ProductCountMgr.Add(req.ID, 1)
 
 	// //用户id&商品id&当前时间&密钥
 	res.Code = ErrSecKillSucc

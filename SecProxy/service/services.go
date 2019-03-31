@@ -4,6 +4,7 @@ import (
 	"crypto/md5"
 	"errors"
 	"fmt"
+	"github.com/astaxie/beego/logs"
 	"time"
 
 	"github.com/astaxie/beego"
@@ -30,7 +31,7 @@ func SecKill(req *SecRequest) (data map[string]interface{}, code int, err error)
 		return
 	}
 
-	data, code, err = SecInfoById(req.ProductId)
+	data, code, err = SecInfoById(req.ID)
 	if err != nil {
 		beego.Warn(fmt.Sprintf("UserId[%d] SecInfo By Id fail , req[%v]", req.UserId, req))
 		return
@@ -41,7 +42,40 @@ func SecKill(req *SecRequest) (data map[string]interface{}, code int, err error)
 		return
 	}
 
+	userKey := fmt.Sprintf("%d_%d", req.UserId, req.ID)
+	logs.Debug(userKey)
+	secKillServer.UserConnMap[userKey] = req.ResultChan
+
 	secKillServer.SecReqChan <- req
+
+	ticker := time.NewTicker(time.Second * 5)
+
+	defer func() {
+		ticker.Stop()
+		secKillServer.UserConnMapLock.Lock()
+		delete(secKillServer.UserConnMap, userKey)
+		secKillServer.UserConnMapLock.Unlock()
+	}()
+
+	select {
+	case <-ticker.C:
+		code = ErrProcessTimeout
+		err = fmt.Errorf("request timeout")
+
+		return
+	case <-req.CloseNotify:
+		code = ErrClientClosed
+		err = fmt.Errorf("client already closed")
+		return
+	case result := <-req.ResultChan:
+		code = result.Code
+		data["id"] = result.ID
+		data["product_id"] = result.ProductId
+		data["token"] = result.Token
+		data["user_id"] = result.UserId
+
+		return
+	}
 	return
 }
 
@@ -52,7 +86,7 @@ func SecInfoList() (data []map[string]interface{}, code int, err error) {
 
 	for _, v := range secKillServer.SecProductInfoConfMap {
 
-		item, _, err := SecInfoById(v.ProductId)
+		item, _, err := SecInfoById(v.ID)
 		if err != nil {
 			beego.Debug(fmt.Sprintf("get product_id[%d] failed, err:%v", v.ProductId, err))
 			continue
@@ -63,12 +97,12 @@ func SecInfoList() (data []map[string]interface{}, code int, err error) {
 	return
 }
 
-func SecInfo(productId int) (data []map[string]interface{}, code int, err error) {
+func SecInfo(Id int64) (data []map[string]interface{}, code int, err error) {
 
 	secKillServer.RWSecProductLock.RLock()
 	defer secKillServer.RWSecProductLock.RUnlock()
 
-	item, code, err := SecInfoById(productId)
+	item, code, err := SecInfoById(Id)
 	if err != nil {
 		return
 	}
@@ -77,12 +111,12 @@ func SecInfo(productId int) (data []map[string]interface{}, code int, err error)
 	return
 }
 
-func SecInfoById(productId int) (data map[string]interface{}, code int, err error) {
+func SecInfoById(Id int64) (data map[string]interface{}, code int, err error) {
 
-	v, ok := secKillServer.SecProductInfoConfMap[productId]
+	v, ok := secKillServer.SecProductInfoConfMap[Id]
 	if !ok {
 		code = ErrNotFoundProductId
-		err = fmt.Errorf("not found product_id:%d", productId)
+		err = fmt.Errorf("not found product_id:%d", Id)
 		return
 	}
 
@@ -117,7 +151,9 @@ func SecInfoById(productId int) (data map[string]interface{}, code int, err erro
 	}
 
 	data = make(map[string]interface{})
-	data["product_id"] = productId
+
+	data["id"] = v.ID
+	data["product_id"] = v.ProductId
 	data["start"] = start
 	data["end"] = end
 	data["status"] = status
@@ -134,20 +170,21 @@ func NewSecRequest() (secRequest *SecRequest) {
 }
 
 func userCheck(req *SecRequest) (err error) {
-	found := false
-	// 检查用户的请求refer 是否在白名单中 如果没在会拒绝请求
-	for _, refer := range secKillServer.ReferWhiteList {
-		if refer == req.ClientRefence {
-			found = true
-			break
-		}
-	}
-
-	if !found {
-		err = fmt.Errorf("invalid request ")
-		beego.Warn(fmt.Sprintf("user [%d] is reject by refer , request :%v", req.UserId, req))
-		return
-	}
+	//found := false
+	//// 检查用户的请求refer 是否在白名单中 如果没在会拒绝请求
+	//logs.Debug(fmt.Sprintf("client refence is %v", req.ClientRefence))
+	//for _, refer := range secKillServer.ReferWhiteList {
+	//	if refer == req.ClientRefence {
+	//		found = true
+	//		break
+	//	}
+	//}
+	//
+	//if !found {
+	//	err = fmt.Errorf("invalid request ")
+	//	beego.Warn(fmt.Sprintf("user [%d] is reject by refer , request :%v", req.UserId, req))
+	//	return
+	//}
 
 	// 检车用户身份是否合法
 	authData := fmt.Sprintf("%d:%s", req.UserId, secKillServer.CookieSecretKey)

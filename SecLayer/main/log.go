@@ -10,27 +10,31 @@ import (
 
 // init loger
 func initLogger() (err error) {
-	config := make(map[string]interface{})
-	config["filename"] = appConfig.LogPath
-	config["level"] = convertLogLevel(appConfig.LogLevel)
+	if strings.ToLower(appConfig.LogLevel) == "debug" {
+		beego.SetLogFuncCall(true)
+	}else {
+		config := make(map[string]interface{})
+		config["filename"] = appConfig.LogPath
+		config["level"] = convertLogLevel(appConfig.LogLevel)
 
-	configStr, err := json.Marshal(config)
-	if err != nil {
-		log.Println("init loger fialed, json marshal error ,", err)
-		return
-	}
+		configStr, err := json.Marshal(config)
+		if err != nil {
+			log.Println("init loger fialed, json marshal error ,", err)
+			return err
+		}
 
-	//adapter := logs.AdapterFile
-	//if config["level"] == logs.LevelDebug {
-	//	adapter = logs.AdapterConsole
-	//}
-	err = logs.SetLogger(logs.AdapterFile, string(configStr))
-	if err != nil {
-		log.Println("init loger fialed, SetLogger error,", err)
-		return
+		//adapter := logs.AdapterFile
+		//if config["level"] == logs.LevelDebug {
+		//	adapter = logs.AdapterConsole
+		//}
+		err = beego.SetLogger(logs.AdapterFile, string(configStr))
+		if err != nil {
+			log.Println("init loger fialed, SetLogger error,", err)
+			return err
+		}
+		beego.SetLogFuncCall(true)
 	}
-	beego.SetLogFuncCall(true)
-	return
+	return nil
 }
 
 // loglevel string convert to int

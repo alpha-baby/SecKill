@@ -11,7 +11,7 @@ import (
 
 var (
 	SecKillConfig = &service.SecKillServer{
-		SecProductInfoConfMap: make(map[int]*service.SecProductInfoConf, 1024),
+		SecProductInfoConfMap: make(map[int64]*service.SecProductInfoConf, 1024),
 	}
 )
 
@@ -136,6 +136,28 @@ func readRedisConfig() (err error) {
 		}
 	}
 
+	// ;redis 业务逻辑层->接入层
+	{
+		SecKillConfig.RedisLayer2ProxyConf.RedisAddr = beego.AppConfig.String("redis_layer2proxy_addr")
+		if len(SecKillConfig.RedisLayer2ProxyConf.RedisAddr) == 0 {
+			return errors.New("init config redis_layer2proxy_addr err")
+		}
+
+		SecKillConfig.RedisLayer2ProxyConf.RedisMaxIdle, err = beego.AppConfig.Int("redis_layer2proxy_idle")
+		if err != nil {
+			return errors.New(fmt.Sprintf("init config redis_layer2proxy_idle err is %v", err))
+		}
+
+		SecKillConfig.RedisLayer2ProxyConf.RedisMaxActive, err = beego.AppConfig.Int("redis_layer2proxy_active")
+		if err != nil {
+			return errors.New(fmt.Sprintf("init config redis_layer2proxy_active err is %v", err))
+		}
+
+		SecKillConfig.RedisLayer2ProxyConf.RedisIdleTimeout, err = beego.AppConfig.Int("redis_layer2proxy_idle_timeout")
+		if err != nil {
+			return errors.New(fmt.Sprintf("init config redis_layer2proxy_idle_timeout  err is %v", err))
+		}
+	}
 	return nil
 }
 

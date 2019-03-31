@@ -7,23 +7,23 @@ type UserBuyHistory struct {
 	Lock    sync.RWMutex
 }
 
-func (p *UserBuyHistory) GetProductByCount(productId int) int {
+func (p *UserBuyHistory) GetProductByCount(UserId int) int {
 	p.Lock.RLock()
-	defer p.Lock.Unlock()
+	defer p.Lock.RUnlock()
 
-	count, _ := p.history[productId]
+	count, _ := p.history[UserId]
 	return count
 }
 
-func (p *UserBuyHistory) Add(productId, count int) {
+func (p *UserBuyHistory) Add(UserId int, count int) {
 	p.Lock.Lock()
 	defer p.Lock.Unlock()
 
-	cur, ok := p.history[productId]
+	cur, ok := p.history[UserId]
 	if !ok {
 		cur = count
 	} else {
 		cur += count
 	}
-	p.history[productId] = cur
+	p.history[UserId] = cur
 }

@@ -51,23 +51,16 @@ func loadSecConf() (err error) {
 
 	// 把从etcd中读取到的秒杀商品配置信息存放到系统全局变量中去
 	go updateSecProductInfo(secProductInfo)
-	// 开启
+	// 开启go协程监听etcd是否有改动或者增加
 	go watchSecProductKey(SecKillConfig.EtcdConfig.EtcdProductKey)
 	return nil
 }
 
 func updateSecProductInfo(secProductInfo []service.SecProductInfoConf) {
-
-	var tmp map[int]*service.SecProductInfoConf = make(map[int]*service.SecProductInfoConf, 1024)
-	SecKillConfig.RWSecProductLock.RLock()
-	if len(SecKillConfig.SecProductInfoConfMap) != 0 {
-		tmp = SecKillConfig.SecProductInfoConfMap
-	}
-	SecKillConfig.RWSecProductLock.RUnlock()
+	var tmp map[int64]*service.SecProductInfoConf = make(map[int64]*service.SecProductInfoConf, 1024)
 	for _, v := range secProductInfo {
-		//product := service.SecProductInfoConf{}
-		product := v
-		tmp[v.ProductId] = &product
+		produtInfo := v
+		tmp[v.ID] = &produtInfo
 	}
 
 	SecKillConfig.RWSecProductLock.Lock()
@@ -84,12 +77,13 @@ func watchSecProductKey(key string) {
 	for {
 		rch := EtcdClient.Watch(context.Background(), key)
 		var secProductInfo []service.SecProductInfoConf
-		var getConfSucc = true
 
 		for wresp := range rch {
 			for _, ev := range wresp.Events {
 				if ev.Type == mvccpb.DELETE {
 					beego.Warn(fmt.Sprintf("key[%s] 's config deleted", key))
+					secProductInfo = []service.SecProductInfoConf{}
+					updateSecProductInfo(secProductInfo)
 					continue
 				}
 
@@ -97,15 +91,12 @@ func watchSecProductKey(key string) {
 					err := json.Unmarshal(ev.Kv.Value, &secProductInfo)
 					if err != nil {
 						beego.Error(fmt.Sprintf("key [%s], Unmarshal[%s], err:%v ", err))
-						getConfSucc = false
 						continue
 					}
-				}
-			}
 
-			if getConfSucc {
-				beego.Debug(fmt.Sprintf("get new config from etcd: %v", secProductInfo))
-				updateSecProductInfo(secProductInfo)
+					beego.Debug(fmt.Sprintf("get new config from etcd: %v", secProductInfo))
+					updateSecProductInfo(secProductInfo)
+				}
 			}
 		}
 	}

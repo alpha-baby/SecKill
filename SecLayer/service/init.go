@@ -3,7 +3,6 @@ package service
 import "github.com/astaxie/beego/logs"
 
 func InitService(conf *SecLayerConf) (err error) {
-	secLayerConf = conf
 	seclayerContext.SecLayerConf = conf
 	seclayerContext.Read2HandleChan = make(chan *SecRequest, conf.Read2HandleChanSize)
 	seclayerContext.Handle2WriteChan = make(chan *SecResponse, conf.Handle2WriteChanSize)

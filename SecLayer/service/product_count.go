@@ -3,35 +3,35 @@ package service
 import "sync"
 
 type ProductCountMgr struct {
-	ProductCount map[int]int
+	ProductCount map[int64]int
 	lock         sync.RWMutex
 }
 
 func NewProductCountMgr() (p *ProductCountMgr) {
 	p = &ProductCountMgr{
-		ProductCount: make(map[int]int, 128),
+		ProductCount: make(map[int64]int, 128),
 	}
 	return
 }
 
-func (p *ProductCountMgr) Count(productId int) (count int) {
+func (p *ProductCountMgr) Count(Id int64) (count int) {
 	p.lock.RLock()
-	defer p.lock.Unlock()
+	defer p.lock.RUnlock()
 
-	count = p.ProductCount[productId]
+	count = p.ProductCount[Id]
 	return
 }
 
-func (p *ProductCountMgr) Add(productId, count int) {
+func (p *ProductCountMgr) Add(Id int64, count int) {
 	p.lock.Lock()
 	defer p.lock.Unlock()
 
-	cur, ok := p.ProductCount[productId]
+	cur, ok := p.ProductCount[Id]
 	if !ok {
 		cur = count
 	} else {
 		cur += count
 	}
 
-	p.ProductCount[productId] = cur
+	p.ProductCount[Id] = cur
 }

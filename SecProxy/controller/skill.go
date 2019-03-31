@@ -15,7 +15,8 @@ type SkillController struct {
 
 func (p *SkillController) SecKill() {
 
-	productId, err := p.GetInt("product_id")
+	Id, err := p.GetInt64("id")
+	ProductId, err := p.GetInt("product_id")
 	result := make(map[string]interface{})
 
 	result["code"] = 0
@@ -40,7 +41,8 @@ func (p *SkillController) SecKill() {
 	secRequest := service.NewSecRequest()
 	secRequest.AuthCode = authcode
 	secRequest.Nance = nance
-	secRequest.ProductId = productId
+	secRequest.ID = Id
+	secRequest.ProductId = ProductId
 	secRequest.SecTime = secTime
 	secRequest.Source = source
 	secRequest.UserAuthSign = p.Ctx.GetCookie("userAuthSign")
@@ -75,7 +77,7 @@ func (p *SkillController) SecKill() {
 
 func (p *SkillController) SecInfo() {
 
-	productId, err := p.GetInt("product_id")
+	Id, err := p.GetInt64("id")
 	result := make(map[string]interface{})
 
 	result["code"] = 0
@@ -100,7 +102,7 @@ func (p *SkillController) SecInfo() {
 		result["data"] = data
 	} else {
 
-		data, code, err := service.SecInfo(productId)
+		data, code, err := service.SecInfo(Id)
 		if err != nil {
 			result["code"] = code
 			result["message"] = err.Error()

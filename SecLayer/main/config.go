@@ -2,8 +2,10 @@ package main
 
 import (
 	"SecKill/SecLayer/service"
+	"fmt"
 	"github.com/astaxie/beego/config"
 	"github.com/pkg/errors"
+	"strings"
 )
 
 var (
@@ -165,15 +167,21 @@ func loadEtcdConfig() (err error) {
 		return errors.New("init config etcd::server_addr error")
 	}
 
-	appConfig.EtcdConfig.EtcdSecProductKey = conf.String("etcd::etcd_product_key")
-	if len(appConfig.TokenPasswd) == 0 {
-		return errors.New("init config etcd::etcd_product_key error")
-	}
-
 	appConfig.EtcdConfig.EtcdSecKeyPrefix = conf.String("etcd::etcd_sec_key_prefix")
 	if len(appConfig.TokenPasswd) == 0 {
 		return errors.New("init config etcd::etcd_sec_key_prefix error")
 	}
+	if strings.HasSuffix(appConfig.EtcdConfig.EtcdSecKeyPrefix, "/") == false {
+		appConfig.EtcdConfig.EtcdSecKeyPrefix = appConfig.EtcdConfig.EtcdSecKeyPrefix + "/"
+	}
+
+	productKey := conf.String("etcd::etcd_product_key")
+	if len(appConfig.TokenPasswd) == 0 {
+		return errors.New("init config etcd::etcd_product_key error")
+	}
+	appConfig.EtcdConfig.EtcdSecProductKey = fmt.Sprintf("%s%s", appConfig.EtcdConfig.EtcdSecKeyPrefix, productKey)
+
+
 
 	appConfig.EtcdConfig.Timeout, err = conf.Int("etcd::timeout")
 	if err != nil {

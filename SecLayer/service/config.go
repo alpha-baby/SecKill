@@ -9,7 +9,6 @@ import (
 
 var (
 	seclayerContext = &SecLayerContext{}
-	secLayerConf    = &SecLayerConf{}
 )
 
 type SecLayerConf struct {
@@ -29,7 +28,7 @@ type SecLayerConf struct {
 	LogLevel string
 	LogPath  string
 
-	SecProductInfoMap map[int]*SecProductInfoConf
+	SecProductInfoMap map[int64]*SecProductInfoConf
 
 	TokenPasswd string
 }
@@ -68,6 +67,7 @@ type SecLayerContext struct {
 }
 
 type SecProductInfoConf struct {
+	ID int64
 	ProductId         int
 	StartTime         int64
 	EndTime           int64
@@ -75,14 +75,16 @@ type SecProductInfoConf struct {
 	Total             int
 	Left              int
 	OnePersonBuyLimit int
-	BuyRate           float64 // 买到的概率
-	// 每秒最多卖多少个
+	BuyRate           float64
+	//每秒最多能卖多少个
 	SoldMaxLimit int
 	// 限速控制
 	secLimit *SecLimit
+
 }
 
 type SecRequest struct {
+	ID int64
 	ProductId     int
 	Source        string
 	AuthCode      string
@@ -99,6 +101,7 @@ type SecRequest struct {
 }
 
 type SecResponse struct {
+	ID int64
 	ProductId int
 	UserId    int
 	Token     string
@@ -107,6 +110,7 @@ type SecResponse struct {
 }
 
 type SecResult struct {
+	ID int64
 	ProductId int
 	UserId    int
 	Code      int

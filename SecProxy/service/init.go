@@ -23,6 +23,7 @@ func InitService(serviceConf *SecKillServer) (err error) {
 		IpLimitMap:   make(map[string]*SecLimit, 10000),
 	}
 
+	secKillServer.UserConnMap = make(map[string]chan *SecResult, 10000)
 	// 从redis 中读取黑名单信息
 	err = loadBlackList()
 	if err != nil {
