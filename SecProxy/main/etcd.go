@@ -5,13 +5,14 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/astaxie/beego"
-	"go.etcd.io/etcd/mvcc/mvccpb"
 	"strings"
 	"time"
 
+	"github.com/astaxie/beego"
+
 	"github.com/pkg/errors"
 	"go.etcd.io/etcd/clientv3"
+	"go.etcd.io/etcd/mvcc/mvccpb"
 )
 
 func initEtcd() (err error) {
@@ -80,14 +81,14 @@ func watchSecProductKey(key string) {
 
 		for wresp := range rch {
 			for _, ev := range wresp.Events {
-				if ev.Type == mvccpb.DELETE {
+				if int32(ev.Type) == int32(mvccpb.DELETE) {
 					beego.Warn(fmt.Sprintf("key[%s] 's config deleted", key))
 					secProductInfo = []service.SecProductInfoConf{}
 					updateSecProductInfo(secProductInfo)
 					continue
 				}
 
-				if ev.Type == mvccpb.PUT && string(ev.Kv.Key) == key {
+				if int32(ev.Type) == int32(mvccpb.PUT) && string(ev.Kv.Key) == key {
 					err := json.Unmarshal(ev.Kv.Value, &secProductInfo)
 					if err != nil {
 						beego.Error(fmt.Sprintf("key [%s], Unmarshal[%s], err:%v ", err))
